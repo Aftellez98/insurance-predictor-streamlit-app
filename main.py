@@ -1,18 +1,37 @@
-## ------------------------------------------
-## WEB APP Test FOR DEPLOYMENT
-## ------------------------------------------
+'''
+INSURANCE PREDICTOR WEB APPP
+'''
 
 ## -----------
 # Libraries
 ## -----------
-from PIL import Image
+
+import matplotlib.pyplot as plt
+import missingno as ms
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import missingno as ms
-import streamlit as st
 import pickle
+import seaborn as sns
+import streamlit as st
+
+from PIL import Image
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn import linear_model
+
+from src.constants import (TITLE,
+                            OBJECTIVE,
+                            IMAGE,
+                            NOTE,
+                            MISSING_VALUES,
+                            SUMMARY_STATISTICS_TITLE,
+                            GRAPH,
+                            DIS_VAR_DISTR,
+                            BOX,
+                            CORR,
+                            DATA_TRANS,
+                            MODEL)
+
 
 # -------------------
 # Page configuration
@@ -24,45 +43,17 @@ st.set_page_config(
     layout='wide',
     initial_sidebar_state='expanded')
 
+
 # -------------------
 # UI
 # -------------------
 
-# import os
-# # current_working_directory = os.getcwd()
-# # st.write(current_working_directory)
-# # image = Image.open('/src/context/images/insurance.svg')  # Load an image from file
+st.title(TITLE)
+st.write(OBJECTIVE)      
+st.image(IMAGE, caption='Insurance')
+st.write(NOTE)
 
-# st.sidebar.image(
-#     image, 
-#     caption='Insurance App')  # Display the image
-
-## -----------
-## WEB APPLICATION
-## -----------
-
-st.title("**Insurace Prediction**")
-
-st.write("""
-### Objective
-The following application tries to showcase the way in which I, Andres Felipe Tellez would solve and deploy a simple ML Web Application using the *streamlit* library. Specifically, this app predicts insurance costs based on age, sex, bmi index, number of children, whether the pacient is a smoker and region from wich this one lives at.
-
-""")
-         
-image = "https://media.istockphoto.com/id/1199060494/photo/insurance-protecting-family-health-live-house-and-car-concept.jpg?s=612x612&w=0&k=20&c=W8bPvwF5rk7Rm2yDYnMyFhGXZfNqK4bUPlDcRpKVsB8="
-st.image(image, caption='Insurance')
-
-st.write("""
-**Note:** CRISP-DM methodology was implemented.
-
-### Let's take a look at the data
-To begin with our application, we will look at how the first 5 observations look like:
-
-""")
-
-## -----------
-# READ DATA
-## -----------
+# READ DATA-
 insurance_df = pd.read_csv("data/insurance.csv")
 
 # First 5 observations
@@ -101,22 +92,13 @@ Before creating the model, it is important to fully understand the data that we 
 
 # Check if there are any Null values
 missing_values_df = insurance_df.isnull().sum().to_frame(name="Missing Values")
-
 st.write(missing_values_df) 
+st.write(MISSING_VALUES)
 
-st.write("""It is clear that there are no missing values in the dataset.""")
-
-# Display summary statistics (optional)
-st.write("#### Summary Statistics")
+# Display summary statistics
+st.write(SUMMARY_STATISTICS_TITLE)
 st.dataframe(insurance_df.describe())
-
-st.write("""
-#### Graphs
-
-##### Continous variables distributions
-
-The first thing I want to be able to capture are the distributions of all the variables with the model that I will be creating. I also want to make sure that there is no need for that balancing strategies.
-""")
+st.write(GRAPH)
 
 # Create a grid
 col1, col2, col3 = st.columns(3)
@@ -142,10 +124,10 @@ with col3:
   plt.hist(insurance_df["charges"], bins=20)
   st.pyplot(fig_charges)
 
-st.write("##### Discrete variables distributions")
+st.write(DIS_VAR_DISTR)
 
 # Create a grid
-col1, col2 = st.columns(2)
+col1, col2, col3, col4 = st.columns(4)
 
 # Gender distribution
 with col1:
@@ -154,43 +136,24 @@ with col1:
     st.bar_chart(gender_counts)
 
 # Number of children distribution
-with col1:
+with col2:
     st.write("Number of Children Distribution")
     children_counts = insurance_df["children"].value_counts()
     st.bar_chart(children_counts)
 
 # Smoking status
-with col2:
+with col3:
     st.write("Smoking Status")
     smoker_counts = insurance_df["smoker"].value_counts()
     st.bar_chart(smoker_counts)
 
 # Region distribution
-with col2:
+with col4:
     st.write("Region Distribution")
     region_counts = insurance_df["region"].value_counts()
     st.bar_chart(region_counts)
 
-st.write("##### Relationship with charges")
-
-# Display scatter plots between each variable and charges in a grid
-variables = ["age", "sex", "bmi", "children", "smoker", "region"]
-num_cols = 3
-num_rows = len(variables) // num_cols + (len(variables) % num_cols > 0)
-
-fig, axes = plt.subplots(nrows=num_rows, ncols=num_cols, figsize=(12, 8))
-fig.tight_layout(pad=5.0)
-
-for i, variable in enumerate(variables):
-    row = i // num_cols
-    col = i % num_cols
-    ax = axes[row][col]
-    sns.scatterplot(data=insurance_df, x=variable, y="charges", ax=ax)
-    ax.set_title(f"Scatter Plot: {variable.capitalize()} vs Charges")
-
-st.pyplot(fig)
-
-st.write("##### Box and whiskers plot")
+st.write(BOX)
 
 # Select the categorical variables
 categorical_columns = ["sex", "smoker", "region"]
@@ -210,34 +173,20 @@ for i, column in enumerate(categorical_columns):
 ## DATA TRANSFORMATION
 ## -----------
 
-st.write("""#### Data transformation
-
-If we take a look at the insurance dataframe, we see that 4 out the 6 dependent variables are categorical. We will then perform some featuring engineering using hot encoder so that all this becomes columns. Denote that to avoid any problem of multicolinearity, we will remove one attribute for each variable that has more than two possible values.          
-
-The data will now look as follows:
-""")
-
-sex_function = lambda x: int(x != 'female')
-def sex_function(x):
-    return int(x != 'female')
+st.write(DATA_TRANS)
 
 # Binary transformation
-insurance_df['sex'] = insurance_df['sex'].apply(sex_function)
-insurance_df['smoker'] = insurance_df['smoker'].apply(lambda x: int(x != 'no'))
+insurance_df['sex'] = insurance_df['sex'].apply(lambda x: 1 if x == "male" else 0)
+insurance_df['smoker'] = insurance_df['smoker'].apply(lambda x: 1 if x == "yes" else 0)
 
 # Multiclass transformation
 region_dummies = pd.get_dummies(insurance_df['region'], drop_first = True)
-
 insurance_df=pd.concat([insurance_df, region_dummies], axis=1)
 insurance_df.drop(["region"], axis=1, inplace = True)
 
 st.write(insurance_df.head(5))
+st.write(CORR)
 
-st.write("""
-As all variables are now numerical, we can proceed to look at the correlation between variables.
-
-#### Correlation         
-""")
 
 # -----------------------
 # Linear correlation 
@@ -256,64 +205,22 @@ ax.set_title("Correlation Heatmap")
 # Display the heatmap
 st.pyplot(fig)
 
+
 #---------------------
 # MODEL
 #---------------------
 
-st.write("#### Building the model")
+st.write(MODEL)
 
-st.write("##### Data sets")
-
-st.write("""
-We will begin the construction of the model by creating two different sets of data leveraging the library of *scikit-learn*.
-
-We have also stated that 20% of the data will be used for testing the model and 80% for training.
-""")
-
-## TRAIN AND TEST SPLIT
-from sklearn.model_selection import train_test_split
-y = insurance_df['charges']
-X = insurance_df.drop(columns = ['charges'])
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2)
-
-y = insurance_df['charges']
-X = insurance_df.drop(columns = ['charges'])
-
-train = pd.concat([y_train,  X_train], axis=1)
-test = pd.concat([y_test, X_test], axis = 1)
-
-st.write("After running the ***train_test_split*** function we get that  " + str(round(X_train.shape[0]/insurance_df.shape[0],5)) + " of the dataset will be used for training.")
-
-st.write("##### LASSO")
-
-## -----------
-## LASSO
-## -----------
-
-st.write("In statistics and machine learning, lasso (least absolute shrinkage and selection operator) is a regression analysis method that performs both variable selection and regularization in order to enhance the prediction accuracy and interpretability of the resulting statistical model.")
-
-st.write("LASSO uses a hyperparameter alpha {0,inf} to mark the level of shrinkage that will be applied. Let's look at what happens if we set alpha to a value of 1.")
-
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn import linear_model
-
-with open("notebooks/model/lasso", 'rb') as file:
-    reg = pickle.load(file)
-
-# make a prediction
-yhat = reg.predict(X_test)
-r2 = r2_score(y_test, yhat)
-st.write("Using an alpha value of 1, we get that the R^2 for the model is " + str(round(r2*100,3)))
-
-st.write("------------------------------------------------------------------------------------------")
-
-st.write("***TRY PLAYING WITH THE VALUES OF THE SLIDE PANEL TO SEE HOW THIS WOULD CHANGE THE INSURANCE VALUE***")
 
 ## -----------
 ## USER INPUT FEATURES
 ## -----------
-st.sidebar.header("What are you trying to predict?")
-st.sidebar.write("**User input parameters**")
+
+with open("models/lasso_model.pkl", 'rb') as file:
+    reg = pickle.load(file)
+
+st.sidebar.write("**SELECT USER PARAMETERS**")
 
 def user_input_features():
     age = st.sidebar.slider("Age", 18, 60, 30)
@@ -334,7 +241,9 @@ def user_input_features():
                                            
     return features
 
+
 df = user_input_features()
+
 
 df['sex'] = df['sex'].apply(lambda x: 0 if x == 'female' else 1)
 df['smoker'] = df['smoker'].apply(lambda x: 0 if x == 'no' else 1)
@@ -345,7 +254,5 @@ df['southwest'] = df['region'].apply(lambda x: 1 if x == 'southwest' else 0)
 
 df.drop(["region"], axis=1, inplace = True)
 
-st.write("**You have selected the following parameters:**")
-st.write(df)
-
-st.write("Given the inputed parameter, the insuracnce charge would be: $" + str(round(reg.predict(df)[0],2)))
+st.sidebar.write("**PREDICTION**")
+st.sidebar.write("Given the inputed parameter, the insuracnce charge would be: $" + str(round(reg.predict(df)[0],2)))

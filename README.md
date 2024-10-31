@@ -8,7 +8,18 @@ The Insurance Predictor App uses historical insurance data to train a supervised
 
 ## Getting Started
 
-To run the Insurance Predictor App on your local machine, you'll need to have Python and Streamlit installed. If you haven't installed Streamlit yet, you can do so using pip:
+### **Running App Locally
+To run the Insurance Predictor App on your local machine, you'll need to have Python and Streamlit installed:
 
 ```sh
 pip install streamlit
+streamlit run main.py
+```
+
+### **Running App Locally
+
+```sh
+docker build -t my-python-app .
+docker run -p 8501:8501 my-python-app
+docker run -p 8501:8501 --env-file env.list my-python-app
+```
